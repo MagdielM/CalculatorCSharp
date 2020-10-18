@@ -1,11 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace CalculatorCSharp
 {
     public class NumberSymbol : Symbol
     {
-        double value;
+
+        public NumberSymbol(string numericString)
+        {
+            NumericValue = double.Parse(numericString);
+        }
+
+        public double NumericValue { get; set; }
     }
 }
