@@ -6,6 +6,6 @@ namespace CalculatorCSharp
 {
     public abstract class Symbol
     {
-        public int position;
+        public string rawSymbol;
     }
 }
