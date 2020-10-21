@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace CalculatorCSharp
+﻿namespace CalculatorCSharp
 {
     public enum OperationType
     {
-        Add, Subtract, Multiply, Divide, Power
+        Add, Subtract, Multiply, Divide, Power, Invert
     }
 }
