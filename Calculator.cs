@@ -9,11 +9,11 @@ namespace CalculatorCSharp
     {
         /**
          * <summary>
-         *   Base level for nested expressions, used to determine operation order. Set to 3
+         *   Base level for nested expressions, used to determine operation order. Set to 6
          *   so nested expressions receive priority over all normal operations.
          * </summary>
          */
-        private const int baseNestingLevel = 3;
+        private const int baseNestingLevel = 6;
         public const string defaultErrorMessageEnd = "Please modify your expression accordingly and try again.";
 
         /**
@@ -33,7 +33,7 @@ namespace CalculatorCSharp
             set
             {
                 initialRawExpression = string.Concat(value.Where(c => !char.IsWhiteSpace(c)));
-                initialExpression = Parse(InitialRawExpression, out _, baseNestingLevel);
+                currentExpression = Parse(InitialRawExpression, out _, baseNestingLevel);
             }
         }
         private static string initialRawExpression;
@@ -62,7 +62,7 @@ namespace CalculatorCSharp
          */
         private static char[] ParseableDelimiters = { '(', ')' };
 
-        private static Expression initialExpression;
+        private static Expression currentExpression;
         public static NumberSymbol result;
         public static string RawExpression { get; private set; }
         public static int DeepestNestingLevel { get; set; } = baseNestingLevel;
@@ -174,17 +174,21 @@ namespace CalculatorCSharp
                         // Check that the characters to either side are either digits,
                         // expression delimiters, or minus operators.
                         (ParseableDigits.Contains(rawExpression[i - 1])
-                            && (rawExpression[i + 1] == '-'
+                            || (rawExpression[i + 1] == '-'
                                 || rawExpression[i + 1] == '(')
-                        || ((ParseableDigits.Contains(rawExpression[i + 1])
-                            && (rawExpression[i - 1] == '-'
-                                || rawExpression[i - 1] == ')')))
+                        || (ParseableDigits.Contains(rawExpression[i + 1])
+                            || (rawExpression[i - 1] == '-'
+                                || rawExpression[i - 1] == ')'))
                         || (rawExpression[i - 1] == ')' && rawExpression[i + 1] == '(')
                         || (ParseableDigits.Contains(rawExpression[i - 1])
                             && (ParseableDigits.Contains(rawExpression[i + 1])
 
                         // Check that the characters to the sides aren't both minus operators.
-                        && (rawExpression[i - 1] != '-' && rawExpression[i + 1] != '-')))))
+                        && (rawExpression[i - 1] != '-' && rawExpression[i + 1] != '-'))))
+
+                        // Also allow for a minus operator to be followed by an opening
+                        // parenthesis.
+                        || (rawExpression[i] == '-' && rawExpression[i + 1] == '('))
 
                     {
                         switch (rawExpression[i])
@@ -196,19 +200,21 @@ namespace CalculatorCSharp
 
                             case '-':
 
-                                // The operator is an additive inversion operator if it has a
-                                // number to its right and no number to its left.
-                                if (ParseableDigits.Contains(rawExpression[i + 1]))
-                                {
-                                    returnExpression.Add(new OperationSymbol(OperationType.Invert, "-"));
-                                }
-
-                                // The operator is a subtraction operator if it has a number
-                                // to its left and either an additive inversion operator or
-                                // another number to its right.
-                                else
+                                // The operator is a subtraction operator if it's
+                                // surrounded by either numbers or expressions.
+                                if (
+                                    (ParseableDigits.Contains(rawExpression[i - 1]) || rawExpression[i - 1] == ')')
+                                    && (ParseableDigits.Contains(rawExpression[i + 1])
+                                        || rawExpression[i + 1] == '(' || rawExpression[i + 1] == '-'))
                                 {
                                     returnExpression.Add(new OperationSymbol(OperationType.Subtract, "-"));
+                                }
+
+                                // In any other case, the operator is an additive
+                                // inversion operator.
+                                else
+                                {
+                                    returnExpression.Add(new OperationSymbol(OperationType.Invert, "-"));
                                 }
                                 symbolStringBuffer.Clear();
                                 break;
@@ -244,18 +250,20 @@ namespace CalculatorCSharp
                         case '(':
                             int charactersToSkip;
                             returnExpression.InternalExpression.Add(
-                                Parse(rawExpression.Substring(i + 1), out charactersToSkip, level + 1));
+                                Parse(rawExpression.Substring(i + 1), out charactersToSkip));
                             DeepestNestingLevel++;
                             i += charactersToSkip;
                             break;
 
                         case ')':
-                            // At the end of an expression, consider all non-digit
-                            // characters invalid.
-                            if (!ParseableDigits.Contains(rawExpression[i - 1]))
+                            // At the end of an expression, consider all characters
+                            // that are neither digits nor expression delimiters invalid.
+                            if (!ParseableDigits.Contains(rawExpression[i - 1])
+                                && rawExpression[i - 1] != ')')
                             {
                                 throw new ArgumentException("All expressions, nested or otherwise, must" +
-                                " end with a digit. " + defaultErrorMessageEnd);
+                                " end with either a digit or an end parenthesis. " +
+                                defaultErrorMessageEnd);
                             }
                             offset = i;
                             returnExpression.rawSymbol = rawExpression.Substring(0, i);
@@ -284,17 +292,20 @@ namespace CalculatorCSharp
             }
         }
 
+        public static double Resolve()
+        {
+            return currentExpression.Resolve();
+        }
+
         private class Expression : Symbol
         {
-            public int order;
-
             public double value;
 
             public List<Symbol> InternalExpression { get; private set; } = new List<Symbol>();
 
             public Expression(int initialOrder, string initialRawExpression = "")
             {
-                order = initialOrder;
+                level = baseNestingLevel;
                 rawSymbol = initialRawExpression;
             }
 
@@ -311,6 +322,79 @@ namespace CalculatorCSharp
                 InternalExpression.Add(s);
             }
 
+            public NumberSymbol Resolve()
+            {
+                int resolutionLevel = baseNestingLevel;
+                int i = 0;
+                while (InternalExpression.Count != 1)
+                {
+                    if (i > InternalExpression.Count - 1)
+                    {
+                        resolutionLevel--;
+                        i = 0;
+                    }
+                    if (InternalExpression[i] is Expression nestedExpression)
+                    {
+                        InternalExpression[i] = nestedExpression.Resolve();
+                    }
+                    else if (InternalExpression[i] is OperationSymbol operation)
+                    {
+                        if (InternalExpression[i].level < resolutionLevel)
+                        {
+                            i++;
+                            continue;
+                        }
+                        else
+                        {
+                            switch (operation.operationType)
+                            {
+                                case OperationType.Add:
+                                    InternalExpression[i - 1] = new NumberSymbol(
+                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue
+                                        + (InternalExpression[i + 1] as NumberSymbol).NumericValue);
+                                    InternalExpression.RemoveRange(i, 2);
+                                    break;
+                                case OperationType.Subtract:
+                                    InternalExpression[i - 1] = new NumberSymbol(
+                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue
+                                        - (InternalExpression[i + 1] as NumberSymbol).NumericValue);
+                                    InternalExpression.RemoveRange(i, 2);
+                                    break;
+                                case OperationType.Multiply:
+                                    InternalExpression[i - 1] = new NumberSymbol(
+                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue
+                                        * (InternalExpression[i + 1] as NumberSymbol).NumericValue);
+                                    InternalExpression.RemoveRange(i, 2);
+                                    break;
+                                case OperationType.Divide:
+                                    InternalExpression[i - 1] = new NumberSymbol(
+                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue
+                                        / (InternalExpression[i + 1] as NumberSymbol).NumericValue);
+                                    InternalExpression.RemoveRange(i, 2);
+                                    break;
+                                case OperationType.Power:
+                                    InternalExpression[i - 1] = new NumberSymbol(Math.Pow(
+                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue,
+                                         (InternalExpression[i + 1] as NumberSymbol).NumericValue));
+                                    InternalExpression.RemoveRange(i, 2);
+                                    break;
+                                case OperationType.Invert:
+                                    (InternalExpression[i + 1] as NumberSymbol).NumericValue =
+                                        -(InternalExpression[i + 1] as NumberSymbol).NumericValue;
+                                    InternalExpression.RemoveAt(i);
+                                    break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        i++;
+                    }
+
+                }
+                return (NumberSymbol)this;
+
+            }
             /**
              * <summary>
              *   Conversion between <see cref="Expression"/> and <see cref="NumberSymbol"/>,
@@ -320,8 +404,15 @@ namespace CalculatorCSharp
              */
             public static explicit operator NumberSymbol(Expression expression)
             {
-                return expression.InternalExpression.Single() is NumberSymbol ?
-                    expression.InternalExpression.Single() as NumberSymbol : null;
+                if (expression.InternalExpression.Single() is NumberSymbol symbol)
+                {
+                    return symbol;
+                }
+                else
+                {
+                    throw new InvalidCastException("The expression cannot be casted to a NumberSymbol " +
+                        "because it's InternalExpression does not consist of a singular NumberSymbol.");
+                }
             }
         }
     }
