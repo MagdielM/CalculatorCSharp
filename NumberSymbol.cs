@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace CalculatorCSharp
+﻿namespace CalculatorCSharp
 {
     public class NumberSymbol : Symbol
     {
@@ -9,6 +6,7 @@ namespace CalculatorCSharp
         public NumberSymbol(string numericString)
         {
             NumericValue = double.Parse(numericString);
+            rawSymbol = numericString;
         }
 
         public double NumericValue { get; set; }
