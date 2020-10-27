@@ -349,38 +349,37 @@ namespace CalculatorCSharp
                             switch (operation.operationType)
                             {
                                 case OperationType.Add:
-                                    InternalExpression[i - 1] = new NumberSymbol(
-                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue
-                                        + (InternalExpression[i + 1] as NumberSymbol).NumericValue);
+                                    InternalExpression[i - 1] = (NumberSymbol)InternalExpression[i - 1]
+                                        + (NumberSymbol)InternalExpression[i + 1];
                                     InternalExpression.RemoveRange(i, 2);
                                     break;
+
                                 case OperationType.Subtract:
-                                    InternalExpression[i - 1] = new NumberSymbol(
-                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue
-                                        - (InternalExpression[i + 1] as NumberSymbol).NumericValue);
+                                    InternalExpression[i - 1] = (NumberSymbol)InternalExpression[i - 1]
+                                        - (NumberSymbol)InternalExpression[i + 1];
                                     InternalExpression.RemoveRange(i, 2);
                                     break;
+
                                 case OperationType.Multiply:
-                                    InternalExpression[i - 1] = new NumberSymbol(
-                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue
-                                        * (InternalExpression[i + 1] as NumberSymbol).NumericValue);
+                                    InternalExpression[i - 1] = (NumberSymbol)InternalExpression[i - 1]
+                                        * (NumberSymbol)InternalExpression[i + 1];
                                     InternalExpression.RemoveRange(i, 2);
                                     break;
+
                                 case OperationType.Divide:
-                                    InternalExpression[i - 1] = new NumberSymbol(
-                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue
-                                        / (InternalExpression[i + 1] as NumberSymbol).NumericValue);
+                                    InternalExpression[i - 1] = (NumberSymbol)InternalExpression[i - 1]
+                                        / (NumberSymbol)InternalExpression[i + 1];
                                     InternalExpression.RemoveRange(i, 2);
                                     break;
+
                                 case OperationType.Power:
-                                    InternalExpression[i - 1] = new NumberSymbol(Math.Pow(
-                                        (InternalExpression[i - 1] as NumberSymbol).NumericValue,
-                                         (InternalExpression[i + 1] as NumberSymbol).NumericValue));
+                                    InternalExpression[i - 1] = ((NumberSymbol)InternalExpression[i - 1])
+                                        .Pow((NumberSymbol)InternalExpression[i + 1]);
                                     InternalExpression.RemoveRange(i, 2);
                                     break;
+
                                 case OperationType.Invert:
-                                    (InternalExpression[i + 1] as NumberSymbol).NumericValue =
-                                        -(InternalExpression[i + 1] as NumberSymbol).NumericValue;
+                                    InternalExpression[i + 1] = -(NumberSymbol)InternalExpression[i + 1];
                                     InternalExpression.RemoveAt(i);
                                     break;
                             }
