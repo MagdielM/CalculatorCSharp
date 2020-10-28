@@ -13,6 +13,6 @@
      */
     public enum OperationType
     {
-        Add, Subtract, Multiply, Divide, Power, Invert
+        AddOrSubtract, MultiplyOrDivide, Power, Invert
     }
 }
